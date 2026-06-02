@@ -1,28 +1,26 @@
 from django.contrib import admin
-
-# Import models
 from .models import Course, Lesson, Instructor, Learner, Question, Choice, Submission
 
 
-# Lesson inline inside Course
+# Inline for Lessons inside Course
 class LessonInline(admin.StackedInline):
     model = Lesson
     extra = 5
 
 
-# Choice inline inside Question
+# Inline for Choices inside Question
 class ChoiceInline(admin.StackedInline):
     model = Choice
     extra = 2
 
 
-# Question inline (optional but required by lab structure)
+# Inline for Questions inside Course (optional use)
 class QuestionInline(admin.StackedInline):
     model = Question
     extra = 2
 
 
-# Course admin
+# Course Admin
 class CourseAdmin(admin.ModelAdmin):
     inlines = [LessonInline]
     list_display = ('name', 'pub_date')
@@ -30,13 +28,13 @@ class CourseAdmin(admin.ModelAdmin):
     search_fields = ['name', 'description']
 
 
-# Question admin
+# Question Admin
 class QuestionAdmin(admin.ModelAdmin):
     inlines = [ChoiceInline]
-    list_display = ['question_text']
+    list_display = ['content']
 
 
-# Lesson admin
+# Lesson Admin
 class LessonAdmin(admin.ModelAdmin):
     list_display = ['title']
 
