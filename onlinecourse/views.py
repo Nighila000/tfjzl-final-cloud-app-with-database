@@ -9,7 +9,6 @@ import logging
 
 logger = logging.getLogger(__name__)
 
-
 # -----------------------------
 # AUTH
 # -----------------------------
@@ -68,8 +67,16 @@ def check_if_enrolled(user, course):
     return Enrollment.objects.filter(user=user, course=course).exists()
 
 
+def extract_answers(request):
+    selected = []
+    for key in request.POST:
+        if key.startswith('choice'):
+            selected.append(int(request.POST[key]))
+    return selected
+
+
 # -----------------------------
-# COURSE VIEWS
+# COURSE LIST
 # -----------------------------
 class CourseListView(generic.ListView):
     template_name = 'onlinecourse/course_list_bootstrap.html'
@@ -85,6 +92,9 @@ class CourseListView(generic.ListView):
         return courses
 
 
+# -----------------------------
+# COURSE DETAIL
+# -----------------------------
 class CourseDetailView(generic.DetailView):
     model = Course
     template_name = 'onlinecourse/course_detail_bootstrap.html'
@@ -108,18 +118,7 @@ def enroll(request, course_id):
 
 
 # -----------------------------
-# EXTRACT ANSWERS
-# -----------------------------
-def extract_answers(request):
-    selected = []
-    for key in request.POST:
-        if key.startswith('choice'):
-            selected.append(int(request.POST[key]))
-    return selected
-
-
-# -----------------------------
-# SUBMIT EXAM
+# SUBMIT EXAM (FIXED)
 # -----------------------------
 def submit(request, course_id):
     course = get_object_or_404(Course, pk=course_id)
@@ -134,7 +133,42 @@ def submit(request, course_id):
 
     submission = Submission.objects.create(enrollment=enrollment)
 
-    for choice_id in selected_ids:
-        submission.choices.add(choice_id)
+    # FIX: convert IDs → Choice objects
+    choices = Choice.objects.filter(id__in=selected_ids)
 
-    return redirect('onlinecourse:course_details', course.id)
+    submission.choices.set(choices)
+
+    return HttpResponseRedirect(
+        reverse(
+            'onlinecourse:exam_result',
+            args=(course.id, submission.id,)
+        )
+    )
+
+
+# -----------------------------
+# EXAM RESULT (MISSING BEFORE - NOW FIXED)
+# -----------------------------
+def show_exam_result(request, course_id, submission_id):
+    course = get_object_or_404(Course, pk=course_id)
+    submission = get_object_or_404(Submission, id=submission_id)
+
+    choices = submission.choices.all()
+    questions = course.question_set.all()
+
+    total_score = 0
+
+    for question in questions:
+        correct_choices = question.choice_set.filter(is_correct=True)
+        selected_choices = choices.filter(question=question)
+
+        if set(correct_choices) == set(selected_choices):
+            total_score += question.grade
+
+    context = {
+        'course': course,
+        'grade': total_score,
+        'choices': choices
+    }
+
+    return render(request, 'onlinecourse/exam_result_bootstrap.html', context)
